@@ -1,41 +1,42 @@
 using UnityEngine;
-using TMPro;
-
+using UnityEngine.UI;
 public class TypingStatsController : MonoBehaviour
 {
+    public GameObject Canvascontainer;
+    public GameObject Canvascontainer2;
     public TypingGameController typingGameController;
-    public TextMeshProUGUI wpmText;
-    public TextMeshProUGUI accuracyText;
-    public TextMeshProUGUI locText;
-    public TextMeshProUGUI rankText;
-    public TextMeshProUGUI timerText;
+    public Text wpmText;
+    public Text accuracyText;
+    public Text locText;
+    public Text rankText;
+    public Text timerText;
 
     private float startTime;
     private bool isGameActive = true;
+    private int completedCharactersCount = 0;
 
     [SerializeField]
     private float timeLimit = 60f;
-    [SerializeField]
-    private float[] thresholds = new float[] { 40f, 90f, 10f };
 
-    private enum ThresholdName { WPM, Accuracy, LOC }
-
-    void Start()
+    private void Start()
     {
         startTime = Time.time;
     }
 
-    void Update()
+    private void Update()
     {
         if (isGameActive)
         {
             float elapsedTime = Time.time - startTime;
             float remainingTime = timeLimit - elapsedTime;
 
-            if (remainingTime <= 0f || !typingGameController.isGameActive)
+            if (remainingTime <= 0f || !typingGameController.IsGameActive())
             {
                 remainingTime = 0f;
                 isGameActive = false;
+                EndGame();
+                Canvascontainer2.SetActive(true);
+                Canvascontainer.SetActive(false);
                 CalculateAndDisplayMetrics();
             }
 
@@ -43,35 +44,54 @@ public class TypingStatsController : MonoBehaviour
         }
     }
 
+    public void AddCompletedCharacters(int count)
+    {
+        completedCharactersCount += count; 
+    }
+
     public void CalculateAndDisplayMetrics()
     {
-        int correctCharacters = typingGameController.playerInputText.text.Length;
-        int totalCharacters = typingGameController.backgroundText.text.Length;
+        int totalCorrectCharacters = typingGameController.correctChars;
+        int totalIncorrectCharacters = typingGameController.incorrectChars;
 
-        float wpm = (correctCharacters / 5f) / ((Time.time - startTime) / 60f);
-        float accuracy = (correctCharacters / (float)totalCharacters) * 100;
+        int totalCharacters = completedCharactersCount + totalCorrectCharacters + totalIncorrectCharacters;
 
-        int correctLines = typingGameController.playerInputText.text.Split(new[] { '\n' }, System.StringSplitOptions.RemoveEmptyEntries).Length;
-        float loc = correctLines / ((Time.time - startTime) / 60f);
+        float wpm = (totalCorrectCharacters / 5f) / ((Time.time - startTime) / 60f);
+        float accuracy = (totalCharacters > 0) ? (totalCorrectCharacters / (float)totalCharacters) * 100 : 0;
 
         wpmText.text = $"WPM: {wpm:F2}";
         accuracyText.text = $"Accuracy: {accuracy:F2}%";
-        locText.text = $"LOC: {loc:F2}";
+        locText.text = $"LOC: {typingGameController.completedLines.Count}";
 
-        EvaluateRank(wpm, accuracy, loc);
+        Debug.Log($"Correct Characters: {totalCorrectCharacters}");
+        Debug.Log($"Incorrect Characters: {totalIncorrectCharacters}");
+        Debug.Log($"Total Characters: {totalCharacters}");
+
+        EvaluateRank(wpm, accuracy);
     }
 
-    private void EvaluateRank(float wpm, float accuracy, float loc)
+    private void EvaluateRank(float wpm, float accuracy)
     {
         string rank = "Junior";
-        if (accuracy >= thresholds[(int)ThresholdName.Accuracy] && wpm >= thresholds[(int)ThresholdName.WPM] && loc >= thresholds[(int)ThresholdName.LOC])
+        if (accuracy >= 90 && wpm >= 40)
         {
             rank = "Senior";
         }
-        else if (accuracy >= 80 && wpm >= 30 && loc >= 5)
+        else if (accuracy >= 80 && wpm >= 30)
         {
             rank = "Semi-Senior";
         }
         rankText.text = $"Rank: {rank}";
+    }
+
+    public bool IsGameActive()
+    {
+        return isGameActive;
+    }
+
+    public void EndGame()
+    {
+        isGameActive = false;
+        CalculateAndDisplayMetrics();
     }
 }
